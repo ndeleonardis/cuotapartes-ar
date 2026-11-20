@@ -11,13 +11,16 @@ from collections.abc import Iterator
 from datetime import date
 from decimal import Decimal
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import psycopg
 import pytest
 from psycopg import sql
 from psycopg.conninfo import conninfo_to_dict, make_conninfo
 from psycopg.types.json import Jsonb
+
+if TYPE_CHECKING:
+    from fastapi.testclient import TestClient
 
 RAIZ = Path(__file__).resolve().parent.parent
 URL_ADMIN = os.environ.get(
@@ -150,3 +153,15 @@ def nueva_version(
     ).fetchone()
     assert fila is not None
     return fila[0]
+
+
+@pytest.fixture
+def cliente(url_base_lectura: str) -> Iterator["TestClient"]:
+    """El servicio completo, entrando a la base de prueba como api_lectura."""
+    from fastapi.testclient import TestClient
+
+    from cuotapartes.app import crear_app
+    from cuotapartes.config import Configuracion
+
+    with TestClient(crear_app(Configuracion(url_base=url_base_lectura))) as cliente:
+        yield cliente
