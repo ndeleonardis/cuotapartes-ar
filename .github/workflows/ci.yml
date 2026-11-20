@@ -1,0 +1,36 @@
+# Cada push y cada pull request: lint, formato, tests contra un Postgres 17 real
+# y el chequeo de repo limpio (reglas 6 y 7, dentro de pytest).
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          # Base de prueba vacía, sin datos reales: alcanza con trust.
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      URL_BASE_TEST: postgresql://postgres@localhost:5432/postgres?connect_timeout=5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --locked
+      - run: uv run ruff check
+      - run: uv run ruff format --check
+      - run: uv run pytest
