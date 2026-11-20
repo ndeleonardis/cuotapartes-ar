@@ -6,7 +6,7 @@
 - Regla 5: un valor `ok` siempre trae su fecha y su moneda.
 """
 
-from datetime import date
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from enum import StrEnum
 from typing import Any
@@ -103,3 +103,17 @@ class RespuestaSerie(BaseModel):
     desde: date
     hasta: date
     series: list[Serie]
+
+
+class EstadoDelServicio(BaseModel):
+    """De qué fecha es la última planilla cargada y cuándo se cargó (C9)."""
+
+    fecha_planilla: date | None
+    cargada_en: datetime | None
+    aviso: str | None = None
+
+    @field_serializer("cargada_en")
+    def _en_utc(self, momento: datetime | None) -> str | None:
+        if momento is None:
+            return None
+        return momento.astimezone(UTC).isoformat().replace("+00:00", "Z")

@@ -15,7 +15,15 @@ from typing import Any
 
 import psycopg
 
-from cuotapartes.modelos import CADA, Estado, Moneda, Resultado, Serie, ValorDelDia
+from cuotapartes.modelos import (
+    CADA,
+    Estado,
+    EstadoDelServicio,
+    Moneda,
+    Resultado,
+    Serie,
+    ValorDelDia,
+)
 
 MAXIMO_CODIGOS = 100
 _MAXIMO_INT4 = 2_147_483_647
@@ -210,3 +218,22 @@ def serie(
                 )
             )
     return series
+
+
+def ultima_planilla(conexion: psycopg.Connection) -> EstadoDelServicio:
+    # Una planilla cargada es una descarga con respuesta 200 que trajo fecha de
+    # planilla. Las descargas con error o sin archivo no cuentan.
+    fila = conexion.execute(
+        """
+        select fecha_planilla, capturada_en
+        from cafci.captura
+        where http_status = 200 and fecha_planilla is not null
+        order by capturada_en desc, id desc
+        limit 1
+        """
+    ).fetchone()
+    if fila is None:
+        return EstadoDelServicio(
+            fecha_planilla=None, cargada_en=None, aviso="Todavía no se cargó ninguna planilla."
+        )
+    return EstadoDelServicio(fecha_planilla=fila[0], cargada_en=fila[1])
