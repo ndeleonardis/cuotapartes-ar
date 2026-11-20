@@ -1,0 +1,23 @@
+# Regla 7: secretos solo en .env, que no se versiona. El ejemplo sí.
+.env
+.env.*
+!.env.ejemplo
+
+# Regla 6: el repo es público. Ninguna planilla de la CAFCI ni dump de la base.
+*.xlsx
+*.xls
+*.csv
+*.dump
+*.backup
+
+# Python y herramientas
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+dist/
+build/
+
+# Postgres portable de los tests (scripts/postgres-local.ps1)
+.postgres/

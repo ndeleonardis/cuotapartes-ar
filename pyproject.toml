@@ -1,0 +1,43 @@
+[project]
+name = "cuotapartes-ar"
+version = "0.1.0"
+description = "Valores de cuotaparte de los fondos comunes de inversión argentinos, por código CAFCI."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn>=0.32",
+    "psycopg[binary]>=3.2",
+    "psycopg-pool>=3.2",
+    "pydantic-settings>=2.6",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "httpx>=0.28",
+    "ruff>=0.8",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/cuotapartes"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "TID"]
+
+# Regla 4 de la constitución: nunca float para un valor. Aviso si aparece en src/.
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"builtins.float".msg = "Regla 4: los valores son Decimal, nunca float."
