@@ -8,6 +8,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException
 
+from cuotapartes.acceso import Acceso
 from cuotapartes.config import Configuracion, cargar_configuracion
 from cuotapartes.db import BaseDeMercado, BaseSinDatos
 
@@ -20,6 +21,7 @@ def error(estado: int, mensaje: str) -> JSONResponse:
 
 def crear_app(configuracion: Configuracion | None = None) -> FastAPI:
     configuracion = configuracion or cargar_configuracion()
+    acceso = Acceso(configuracion.claves_por_consumidor())
     base = BaseDeMercado(configuracion.url_base, configuracion.espera_base_segundos)
 
     @asynccontextmanager
@@ -36,6 +38,7 @@ def crear_app(configuracion: Configuracion | None = None) -> FastAPI:
         openapi_url=None,
     )
     app.state.base = base
+    acceso.instalar(app)
 
     @app.exception_handler(BaseSinDatos)
     async def sin_datos(_: Request, __: BaseSinDatos) -> JSONResponse:

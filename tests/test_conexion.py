@@ -11,6 +11,7 @@ from psycopg import errors
 from cuotapartes.app import crear_app
 from cuotapartes.config import Configuracion, ConfiguracionInvalida, cargar_configuracion
 from cuotapartes.db import BaseDeMercado
+from tests.conftest import CLAVE_LEMONHOUSE_TEST
 
 
 def test_la_sesion_del_servicio_es_de_solo_lectura_aunque_el_rol_pueda_escribir(
@@ -36,6 +37,7 @@ def test_salud_responde_ok_sin_datos_de_mercado(cliente: TestClient):
 def test_salud_con_la_base_caida_responde_503_en_espanol():
     configuracion = Configuracion(
         url_base="postgresql://api_lectura:x@127.0.0.1:1/mercado?connect_timeout=1",
+        claves=f"lemonhouse:{CLAVE_LEMONHOUSE_TEST}",
         espera_base_segundos=2,
     )
     with TestClient(crear_app(configuracion)) as cliente:

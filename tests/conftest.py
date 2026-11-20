@@ -11,22 +11,24 @@ from collections.abc import Iterator
 from datetime import date
 from decimal import Decimal
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import psycopg
 import pytest
+from fastapi.testclient import TestClient
 from psycopg import sql
 from psycopg.conninfo import conninfo_to_dict, make_conninfo
 from psycopg.types.json import Jsonb
 
-if TYPE_CHECKING:
-    from fastapi.testclient import TestClient
+from cuotapartes.app import crear_app
+from cuotapartes.config import Configuracion
 
 RAIZ = Path(__file__).resolve().parent.parent
 URL_ADMIN = os.environ.get(
     "URL_BASE_TEST", "postgresql://postgres@127.0.0.1:54317/postgres?connect_timeout=5"
 )
 CLAVE_API_LECTURA_TEST = "solo-para-tests"
+CLAVE_LEMONHOUSE_TEST = "clave-de-prueba-de-lemonhouse-0001"
 
 # Regla 6: las semillas usan códigos que no existen en la CAFCI.
 CODIGO_MINIMO_INVENTADO = 900000
@@ -155,13 +157,20 @@ def nueva_version(
     return fila[0]
 
 
+def _configuracion(url_base: str) -> Configuracion:
+    return Configuracion(url_base=url_base, claves=f"lemonhouse:{CLAVE_LEMONHOUSE_TEST}")
+
+
 @pytest.fixture
-def cliente(url_base_lectura: str) -> Iterator["TestClient"]:
-    """El servicio completo, entrando a la base de prueba como api_lectura."""
-    from fastapi.testclient import TestClient
+def cliente(url_base_lectura: str) -> Iterator[TestClient]:
+    """El servicio completo, como lo llama LemonHouse: con su clave y entrando como api_lectura."""
+    app = crear_app(_configuracion(url_base_lectura))
+    with TestClient(app, headers={"X-Clave": CLAVE_LEMONHOUSE_TEST}) as cliente:
+        yield cliente
 
-    from cuotapartes.app import crear_app
-    from cuotapartes.config import Configuracion
 
-    with TestClient(crear_app(Configuracion(url_base=url_base_lectura))) as cliente:
+@pytest.fixture
+def cliente_sin_clave(url_base_lectura: str) -> Iterator[TestClient]:
+    """El servicio completo, llamado sin clave."""
+    with TestClient(crear_app(_configuracion(url_base_lectura))) as cliente:
         yield cliente
