@@ -55,7 +55,7 @@ Ninguna fuente pública ofrece hoy una serie de cuotapartes con códigos estable
 - **C2 (P0).** DADO un pedido con varios códigos, CUANDO se responde, ENTONCES trae un resultado por cada código pedido, aunque un código se repita en el pedido.
 - **C3 (P0).** DADO un código que nunca estuvo en la planilla, CUANDO se pide, ENTONCES se informa como "no encontrado" y se devuelven los demás. Nunca aparece con valor 0.
 - **C4 (P0).** DADO un fondo cuya última fila trae un marcador en vez de un valor (por ejemplo `(**)`), CUANDO se pide su último valor, ENTONCES devuelve el último valor numérico que haya tenido, con su fecha. Si nunca tuvo uno, lo informa como "sin valor" junto con el texto del marcador. Nunca devuelve 0.
-- **C5 (P1).** DADO un fondo que dejó de aparecer en la planilla, CUANDO se pide, ENTONCES devuelve su último valor y aclara que ya no figura en la planilla desde cierta fecha.
+- **C5 (P2).** DADO un fondo que dejó de aparecer en la planilla, CUANDO se pide, ENTONCES devuelve su último valor y aclara que ya no figura en la planilla desde cierta fecha. Pasó de P1 a P2 al aprobar el plan, el 2026-11-19: la ingesta guarda una versión solo cuando cambia la fila, así que hoy la base no registra qué códigos vinieron en cada planilla. Se retoma cuando la ingesta guarde esa lista (tsk-018 de datos-financieros-ar).
 
 ### Serie de valores
 
