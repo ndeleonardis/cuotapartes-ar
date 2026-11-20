@@ -1,10 +1,12 @@
 """El servicio HTTP. Todas las respuestas de error tienen la forma {"error": "..."}
 y están en español (regla 1)."""
 
+import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import APIRouter, Depends, FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException
 
@@ -22,6 +24,8 @@ from cuotapartes.db import BaseDeMercado, BaseSinDatos
 from cuotapartes.modelos import EstadoDelServicio, RespuestaSerie, RespuestaUltimo
 
 MENSAJE_SIN_DATOS = "Servicio sin datos: la base de mercado no responde."
+
+registro = logging.getLogger("cuotapartes")
 
 
 def error(estado: int, mensaje: str) -> JSONResponse:
@@ -59,11 +63,21 @@ def crear_app(configuracion: Configuracion | None = None) -> FastAPI:
             return error(404, f"No existe la ruta {request.url.path}.")
         if exc.status_code == 405:
             return error(405, f"La ruta {request.url.path} no acepta {request.method}.")
-        return error(exc.status_code, str(exc.detail))
+        return error(exc.status_code, "El pedido no se pudo atender.")
 
     @app.exception_handler(PedidoInvalido)
     async def pedido_invalido(_: Request, exc: PedidoInvalido) -> JSONResponse:
         return error(422, str(exc))
+
+    @app.exception_handler(RequestValidationError)
+    async def validacion(_: Request, __: RequestValidationError) -> JSONResponse:
+        return error(422, "El pedido no es válido.")
+
+    @app.exception_handler(Exception)
+    async def inesperado(request: Request, exc: Exception) -> JSONResponse:
+        # Al registro va el detalle; al consumidor, nunca (puede tener datos internos).
+        registro.error("Error inesperado en %s", request.url.path, exc_info=exc)
+        return error(500, "Error interno del servicio.")
 
     @app.get("/salud")
     def salud() -> dict[str, str]:
@@ -96,4 +110,5 @@ def crear_app(configuracion: Configuracion | None = None) -> FastAPI:
             return ultima_planilla(conexion)
 
     app.include_router(v1)
+    app.state.router_v1 = v1
     return app
