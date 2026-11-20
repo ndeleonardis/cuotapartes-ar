@@ -4,13 +4,15 @@ y están en español (regla 1)."""
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request
+from fastapi import APIRouter, Depends, FastAPI, Request
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException
 
 from cuotapartes.acceso import Acceso
 from cuotapartes.config import Configuracion, cargar_configuracion
+from cuotapartes.consultas import PedidoInvalido, leer_codigos, ultimo_valor
 from cuotapartes.db import BaseDeMercado, BaseSinDatos
+from cuotapartes.modelos import RespuestaUltimo
 
 MENSAJE_SIN_DATOS = "Servicio sin datos: la base de mercado no responde."
 
@@ -52,10 +54,23 @@ def crear_app(configuracion: Configuracion | None = None) -> FastAPI:
             return error(405, f"La ruta {request.url.path} no acepta {request.method}.")
         return error(exc.status_code, str(exc.detail))
 
+    @app.exception_handler(PedidoInvalido)
+    async def pedido_invalido(_: Request, exc: PedidoInvalido) -> JSONResponse:
+        return error(422, str(exc))
+
     @app.get("/salud")
     def salud() -> dict[str, str]:
         with base.conexion() as conexion:
             conexion.execute("select 1")
         return {"estado": "ok"}
 
+    v1 = APIRouter(prefix="/v1", dependencies=[Depends(acceso)])
+
+    @v1.get("/ultimo", response_model=RespuestaUltimo)
+    def ultimo(codigos: str | None = None) -> RespuestaUltimo:
+        pedidos = leer_codigos(codigos)
+        with base.conexion() as conexion:
+            return RespuestaUltimo(resultados=ultimo_valor(conexion, pedidos))
+
+    app.include_router(v1)
     return app
