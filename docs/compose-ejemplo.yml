@@ -1,0 +1,16 @@
+# Fragmento para sumar al compose del stack de la VM (/home/ubuntu/stack).
+# El servicio queda en la misma red que n8n y que el Postgres de `mercado`, y
+# SIN puertos publicados: solo se lo puede llamar desde adentro de esa red,
+# por ejemplo desde n8n con http://cuotapartes:8000.
+#
+# Antes de usarlo, revisá en el compose real:
+# - cómo se llama el servicio del Postgres (va en URL_BASE, en el .env),
+# - que n8n y el Postgres estén en la red por defecto del proyecto.
+services:
+  cuotapartes:
+    build: /home/ubuntu/cuotapartes-ar
+    image: cuotapartes-ar:local
+    restart: unless-stopped
+    # URL_BASE y CLAVES. El .env no se versiona (regla 7).
+    env_file: /home/ubuntu/cuotapartes-ar/.env
+    # Sin "ports:" a propósito.

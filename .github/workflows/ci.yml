@@ -34,3 +34,35 @@ jobs:
       - run: uv run ruff check
       - run: uv run ruff format --check
       - run: uv run pytest
+
+  imagen:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t cuotapartes-ar:ci .
+      - name: La imagen corre sin root
+        run: test "$(docker image inspect cuotapartes-ar:ci --format '{{.Config.User}}')" = "cuotapartes"
+      - name: /salud responde 200 dentro del contenedor
+        run: |
+          docker run -d --name cuotapartes --network host \
+            -e URL_BASE="postgresql://postgres@127.0.0.1:5432/postgres" \
+            -e CLAVES="ci:clave-de-ci-que-no-es-secreta-0001" \
+            cuotapartes-ar:ci
+          for intento in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8000/salud; then exit 0; fi
+            sleep 1
+          done
+          docker logs cuotapartes
+          exit 1
