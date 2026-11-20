@@ -63,3 +63,43 @@ class Resultado(BaseModel):
 
 class RespuestaUltimo(BaseModel):
     resultados: list[Resultado]
+
+
+class ValorDelDia(BaseModel):
+    """Un valor de la serie. Siempre con fecha y moneda, y mayor que 0 (reglas 3 y 5)."""
+
+    fecha: date
+    valor: Decimal
+    moneda: Moneda
+
+    @model_validator(mode="after")
+    def _regla_3(self) -> "ValorDelDia":
+        if self.valor <= 0:
+            raise ValueError("Regla 3: un valor de la serie tiene que ser mayor que 0")
+        return self
+
+    @field_serializer("valor")
+    def _valor_como_texto(self, valor: Decimal) -> str:
+        return format(valor, "f")
+
+
+class Serie(BaseModel):
+    codigo: str
+    estado: Estado
+    fondo: str | None = None
+    cada: int | None = None
+    # Desde qué fecha hay valores guardados de este fondo (C8).
+    datos_desde: date | None = None
+    valores: list[ValorDelDia] = []
+
+    @model_validator(mode="after")
+    def _solo_ok_lleva_valores(self) -> "Serie":
+        if self.estado != Estado.OK and self.valores:
+            raise ValueError("Regla 3: solo una serie ok lleva valores")
+        return self
+
+
+class RespuestaSerie(BaseModel):
+    desde: date
+    hasta: date
+    series: list[Serie]

@@ -10,9 +10,9 @@ from starlette.exceptions import HTTPException
 
 from cuotapartes.acceso import Acceso
 from cuotapartes.config import Configuracion, cargar_configuracion
-from cuotapartes.consultas import PedidoInvalido, leer_codigos, ultimo_valor
+from cuotapartes.consultas import PedidoInvalido, leer_codigos, leer_rango, serie, ultimo_valor
 from cuotapartes.db import BaseDeMercado, BaseSinDatos
-from cuotapartes.modelos import RespuestaUltimo
+from cuotapartes.modelos import RespuestaSerie, RespuestaUltimo
 
 MENSAJE_SIN_DATOS = "Servicio sin datos: la base de mercado no responde."
 
@@ -71,6 +71,17 @@ def crear_app(configuracion: Configuracion | None = None) -> FastAPI:
         pedidos = leer_codigos(codigos)
         with base.conexion() as conexion:
             return RespuestaUltimo(resultados=ultimo_valor(conexion, pedidos))
+
+    @v1.get("/serie", response_model=RespuestaSerie)
+    def serie_de_valores(
+        codigos: str | None = None, desde: str | None = None, hasta: str | None = None
+    ) -> RespuestaSerie:
+        pedidos = leer_codigos(codigos)
+        inicio, fin = leer_rango(desde, hasta)
+        with base.conexion() as conexion:
+            return RespuestaSerie(
+                desde=inicio, hasta=fin, series=serie(conexion, pedidos, inicio, fin)
+            )
 
     app.include_router(v1)
     return app
