@@ -79,9 +79,13 @@ create index on cafci.cuotaparte_version (codigo_cafci, id desc);
 create index on cafci.cuotaparte_version (codigo_cafci, fecha);
 create index on cafci.cuotaparte_version (captura_id);
 
+-- La versión de fecha más reciente de cada clase y, en esa fecha, la última cargada.
+-- No ordena por orden de carga: la CAFCI a veces sirve un archivo con fecha vieja
+-- (feriado del 23/11/2026). "nulls last" porque en Postgres desc pone los NULL primero.
+-- La ingesta compara contra esta vista para decidir si una fila es nueva.
 create view cafci.cuotaparte_actual as
   select distinct on (codigo_cafci) * from cafci.cuotaparte_version
-  order by codigo_cafci, id desc;
+  order by codigo_cafci, fecha desc nulls last, id desc;
 
 create table calendario.feriado (
   fecha        date primary key,

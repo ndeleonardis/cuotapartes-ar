@@ -22,6 +22,42 @@ def test_el_esquema_carga_y_la_vista_devuelve_la_ultima_version(base: psycopg.Co
     assert fila == (date(2026, 11, 18), Decimal("1001.25"))
 
 
+def _actual(base: psycopg.Connection, codigo: int) -> tuple[date | None, Decimal | None] | None:
+    return base.execute(
+        "select fecha, valor_mil_cuotapartes from cafci.cuotaparte_actual where codigo_cafci = %s",
+        (codigo,),
+    ).fetchone()
+
+
+def test_la_vista_toma_la_fecha_mas_reciente_aunque_se_cargue_antes(base: psycopg.Connection):
+    """C16. Como el feriado del 23/11: después del 20/11 llega una revisión del 19/11."""
+    nueva_version(base, codigo=900010, fecha=date(2026, 11, 19), valor=Decimal("1091.196"))
+    nueva_version(base, codigo=900010, fecha=date(2026, 11, 20), valor=Decimal("1083.715"))
+    nueva_version(base, codigo=900010, fecha=date(2026, 11, 19), valor=Decimal("1091.2"))
+
+    assert _actual(base, 900010) == (date(2026, 11, 20), Decimal("1083.715"))
+
+
+def test_la_vista_toma_la_ultima_revision_de_la_misma_fecha(base: psycopg.Connection):
+    """C17."""
+    nueva_version(base, codigo=900011, fecha=date(2026, 11, 20), valor=Decimal("10.1"))
+    nueva_version(base, codigo=900011, fecha=date(2026, 11, 20), valor=Decimal("10.2"))
+
+    assert _actual(base, 900011) == (date(2026, 11, 20), Decimal("10.2"))
+
+
+def test_la_vista_prefiere_una_version_con_fecha_y_no_pierde_las_que_nunca_tuvieron(
+    base: psycopg.Connection,
+):
+    """C18."""
+    nueva_version(base, codigo=900012, fecha=date(2026, 11, 20), valor=Decimal("5.5"))
+    nueva_version(base, codigo=900012, fecha=None, valor=None)
+    nueva_version(base, codigo=900013, fecha=None, valor=None, anotaciones={"valor": "(**)"})
+
+    assert _actual(base, 900012) == (date(2026, 11, 20), Decimal("5.5"))
+    assert _actual(base, 900013) == (None, None)
+
+
 def test_api_lectura_lee_versiones(base: psycopg.Connection, url_base_lectura: str):
     nueva_version(base, codigo=900002, fecha=date(2026, 11, 18), valor=Decimal("12.5"))
 
