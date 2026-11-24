@@ -5,7 +5,7 @@ from decimal import Decimal
 
 import psycopg
 import pytest
-from psycopg import errors
+from psycopg import errors, sql
 
 from tests.conftest import nueva_version
 
@@ -56,6 +56,20 @@ def test_la_vista_prefiere_una_version_con_fecha_y_no_pierde_las_que_nunca_tuvie
 
     assert _actual(base, 900012) == (date(2026, 11, 20), Decimal("5.5"))
     assert _actual(base, 900013) == (None, None)
+
+
+@pytest.mark.parametrize("rol", ["ingesta", "api_lectura"])
+def test_los_roles_siguen_leyendo_la_vista(base: psycopg.Connection, rol: str):
+    """C19. Guarda: la ingesta compara contra la vista cada noche, y el servicio puede leerla."""
+    nueva_version(base, codigo=900014, fecha=date(2026, 11, 20), valor=Decimal("7.5"))
+
+    base.execute(sql.SQL("set role {}").format(sql.Identifier(rol)))
+    try:
+        fila = _actual(base, 900014)
+    finally:
+        base.execute("reset role")
+
+    assert fila == (date(2026, 11, 20), Decimal("7.5"))
 
 
 def test_api_lectura_lee_versiones(base: psycopg.Connection, url_base_lectura: str):
