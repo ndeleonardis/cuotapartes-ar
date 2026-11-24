@@ -18,15 +18,30 @@ Cómo se instala en la VM, cómo se consulta a mano y cómo se mantiene. Los com
    python3 -c "import secrets; print(secrets.token_urlsafe(32))"
    ```
    Guardala también en la credencial de n8n que va a llamar al servicio. Nunca en el repo ni en el chat.
-4. **Crear el `.env`** a partir del ejemplo, y dejarlo legible solo por tu usuario:
+4. **Crear el `.env`** sin que la contraseña ni la clave pasen por la pantalla ni por el historial. Primero, que la contraseña de `api_lectura` no tenga caracteres que haya que escapar en una URL:
    ```sh
-   cd ~/cuotapartes-ar && cp .env.ejemplo .env && chmod 600 .env && nano .env
+   grep '^PG_API_PASSWORD=' ~/stack/.env.roles | cut -d= -f2- | grep -q '[^A-Za-z0-9._~-]' && echo "TIENE caracteres especiales" || echo "sin caracteres especiales"
    ```
-   - `URL_BASE`: el usuario es `api_lectura`, la contraseña es la que está en `~/stack/.env.roles` y el host es el nombre del paso 2.
-   - `CLAVES`: `lemonhouse:` seguido de la clave del paso 3.
-5. **Sumar el servicio al compose** del stack con el fragmento de `docs/compose-ejemplo.yml`, sin publicar puertos, y levantarlo:
+   Si dice "sin caracteres especiales", armá el `.env` (el host `postgres` es el nombre del paso 2). Si dice "TIENE caracteres especiales", la contraseña va escapada con `%XX` dentro de `URL_BASE`:
    ```sh
-   cd ~/stack && docker compose up -d --build cuotapartes
+   cd ~/cuotapartes-ar
+   API_PASS=$(grep '^PG_API_PASSWORD=' ~/stack/.env.roles | cut -d= -f2-)
+   read -s -p "Clave de LemonHouse: " CLAVE_LH; echo
+   umask 077
+   printf 'URL_BASE=postgresql://api_lectura:%s@postgres:5432/mercado\nCLAVES=lemonhouse:%s\n' "$API_PASS" "$CLAVE_LH" > .env
+   unset API_PASS CLAVE_LH
+   ```
+   Verificalo sin mostrar valores. Tiene que dar `600`, `URL_BASE` y `CLAVES`, y `0`:
+   ```sh
+   stat -c '%a' .env; cut -d= -f1 .env; grep -c 'CAMBIAR' .env
+   ```
+5. **Sumar el servicio al stack** con un `docker-compose.override.yml`, que Docker Compose lee solo junto con `docker-compose.yml`. Así no se edita el compose principal, y el servicio no puede quedar debajo de otra sección por error. Después, levantarlo:
+   ```sh
+   cd ~/stack
+   [ -e docker-compose.override.yml ] && echo "YA EXISTE: sumá el servicio a mano" || cp ~/cuotapartes-ar/docs/compose-ejemplo.yml docker-compose.override.yml
+   docker compose config --services   # tiene que aparecer cuotapartes
+   docker compose up -d --build cuotapartes
+   docker compose ps cuotapartes      # Up (healthy) y PORTS solo 8000/tcp, sin 0.0.0.0
    ```
 6. **Probar desde el contenedor de n8n**, que es desde donde lo va a llamar el flujo:
    ```sh
@@ -75,3 +90,11 @@ Si el servicio responde `503` con "Servicio sin datos", no llega a la base: mira
 - **Rotar una clave:** cambiarla en `~/cuotapartes-ar/.env` y en la credencial de n8n, y recrear el contenedor con `docker compose up -d cuotapartes` desde `~/stack`. La clave vieja deja de andar en ese momento.
 - **Sumar un consumidor:** agregar `,nombre:clave` en `CLAVES` y recrear el contenedor.
 - **Ver los registros:** `docker compose logs -f cuotapartes` desde `~/stack`. Los errores inesperados quedan ahí con el detalle, que nunca se le muestra al consumidor.
+- **Mirar la base directo**, por ejemplo para comparar con lo que devuelve el servicio, sin escribir contraseñas:
+  ```sh
+  cd ~/stack
+  docker compose exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d mercado' <<'SQL'
+  select id, capturada_en, fecha_planilla, filas_datos from cafci.captura order by id desc limit 5;
+  SQL
+  ```
+  La vista `cafci.cuotaparte_actual` toma la última versión **cargada** y no la de fecha más reciente. Si la CAFCI sirve un archivo viejo, como pasó en el feriado del 23/11/2026, puede no coincidir con `/v1/ultimo`. En ese caso el que acierta es el servicio.
